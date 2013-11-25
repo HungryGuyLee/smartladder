@@ -3,23 +3,38 @@
 # Based on GAppProxy 2.0.0 by Du XiaoGang <dugang.2008@gmail.com>
 # Based on WallProxy 0.4.0 by Hust Moon <www.ehust@gmail.com>
 # Contributor:
-#      Phus Lu        <phus.lu@gmail.com>
-#      Hewig Xu       <hewigovens@gmail.com>
-#      Ayanamist Yang <ayanamist@gmail.com>
-#      Max Lv         <max.c.lv@gmail.com>
-#      AlsoTang       <alsotang@gmail.com>
-#      Yonsm          <YonsmGuo@gmail.com>
-#      Ming Bai       <mbbill@gmail.com>
-#      Bin Yu         <yubinlove1991@gmail.com>
-#      Zhang Youfu    <zhangyoufu@gmail.com>
-#      Harmony Meow   <harmony.meow@gmail.com>
-#      logostream     <logostream@gmail.com>
-#      Felix Yan      <felixonmars@gmail.com>
-#      Mort Yao       <mort.yao@gmail.com>
-#      Wang Wei Qiang <wwqgtxx@gmail.com>
-#      Poly Rabbit    <mcx_221@foxmail.com>
+#      Phus Lu           <phus.lu@gmail.com>
+#      Hewig Xu          <hewigovens@gmail.com>
+#      Ayanamist Yang    <ayanamist@gmail.com>
+#      V.E.O             <V.E.O@tom.com>
+#      Max Lv            <max.c.lv@gmail.com>
+#      AlsoTang          <alsotang@gmail.com>
+#      Christopher Meng  <cickumqt@gmail.com>
+#      Yonsm Guo         <YonsmGuo@gmail.com>
+#      Parkman           <cseparkman@gmail.com>
+#      Ming Bai          <mbbill@gmail.com>
+#      Bin Yu            <yubinlove1991@gmail.com>
+#      lileixuan         <lileixuan@gmail.com>
+#      Cong Ding         <cong@cding.org>
+#      Zhang Youfu       <zhangyoufu@gmail.com>
+#      Lu Wei            <luwei@barfoo>
+#      Harmony Meow      <harmony.meow@gmail.com>
+#      logostream        <logostream@gmail.com>
+#      Rui Wang          <isnowfy@gmail.com>
+#      Wang Wei Qiang    <wwqgtxx@gmail.com>
+#      Felix Yan         <felixonmars@gmail.com>
+#      Sui Feng          <suifeng.me@qq.com>
+#      QXO               <qxodream@gmail.com>
+#      Geek An           <geekan@foxmail.com>
+#      Poly Rabbit       <mcx_221@foxmail.com>
+#      oxnz              <yunxinyi@gmail.com>
+#      Shusen Liu        <liushusen.smart@gmail.com>
+#      Yad Smood         <y.s.inside@gmail.com>
+#      Chen Shuang       <cs0x7f@gmail.com>
+#      cnfuyu            <cnfuyu@gmail.com>
+#      cuixin            <steven.cuixin@gmail.com>
 
-__version__ = '3.0.6'
+__version__ = '3.0.9a'
 
 import sys
 import os
@@ -293,7 +308,7 @@ class CertUtil(object):
                 del crypt32
                 return 0 if ret else -1
         elif sys.platform == 'darwin':
-            return os.system('security find-certificate -a -c "%s" | grep "%s" >/dev/null || security add-trusted-cert -d -r trustRoot -k "/Library/Keychains/System.keychain" "%s"' % (commonname, commonname, certfile))
+            return os.system(('security find-certificate -a -c "%s" | grep "%s" >/dev/null || security add-trusted-cert -d -r trustRoot -k "/Library/Keychains/System.keychain" "%s"' % (commonname, commonname, certfile.decode('utf-8'))).encode('utf-8'))
         elif sys.platform.startswith('linux'):
             import platform
             platform_distname = platform.dist()[0]
@@ -312,14 +327,14 @@ class CertUtil(object):
     def check_ca():
         #Check CA exists
         capath = os.path.join(os.path.dirname(os.path.abspath(__file__)), CertUtil.ca_keyfile)
-        certdir = os.path.join(os.path.dirname(__file__), CertUtil.ca_certdir)
+        certdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), CertUtil.ca_certdir)
         if not os.path.exists(capath):
             if not OpenSSL:
                 logging.critical('CA.key is not exist and OpenSSL is disabled, ABORT!')
                 sys.exit(-1)
             if os.path.exists(certdir):
                 if os.path.isdir(certdir):
-                    any(os.remove(x) for x in glob.glob(certdir+'/*.crt'))
+                    any(os.remove(x) for x in glob.glob(certdir+'/*.crt')+glob.glob(certdir+'/.*.crt'))
                 else:
                     os.remove(certdir)
                     os.mkdir(certdir)
@@ -433,7 +448,8 @@ class SSLConnection(object):
     def close(self):
         if self._makefile_refs < 1:
             self._connection = None
-            socket.socket.close(self._sock)
+            if self._sock:
+                socket.socket.close(self._sock)
         else:
             self._makefile_refs -= 1
 
@@ -489,15 +505,18 @@ class PacUtil(object):
         except ValueError:
             need_update = False
         try:
-            logging.info('try download %r to update_pacfile(%r)', common.PAC_ADBLOCK, filename)
-            adblock_content = opener.open(common.PAC_ADBLOCK).read()
-            logging.info('%r downloaded, try convert it with adblock2pac', common.PAC_ADBLOCK)
-            if 'gevent' in sys.modules and time.sleep is getattr(sys.modules['gevent'], 'sleep', None) and hasattr(gevent.get_hub(), 'threadpool'):
-                jsrule = gevent.get_hub().threadpool.apply(PacUtil.adblock2pac, (adblock_content, 'FindProxyForURLByAdblock', blackhole, default))
+            if common.PAC_ADBLOCK:
+                logging.info('try download %r to update_pacfile(%r)', common.PAC_ADBLOCK, filename)
+                adblock_content = opener.open(common.PAC_ADBLOCK).read()
+                logging.info('%r downloaded, try convert it with adblock2pac', common.PAC_ADBLOCK)
+                if 'gevent' in sys.modules and time.sleep is getattr(sys.modules['gevent'], 'sleep', None) and hasattr(gevent.get_hub(), 'threadpool'):
+                    jsrule = gevent.get_hub().threadpool.apply(PacUtil.adblock2pac, (adblock_content, 'FindProxyForURLByAdblock', blackhole, default))
+                else:
+                    jsrule = PacUtil.adblock2pac(adblock_content, 'FindProxyForURLByAdblock', blackhole, default)
+                content += '\r\n' + jsrule + '\r\n'
+                logging.info('%r downloaded and parsed', common.PAC_ADBLOCK)
             else:
-                jsrule = PacUtil.adblock2pac(adblock_content, 'FindProxyForURLByAdblock', blackhole, default)
-            content += '\r\n' + jsrule + '\r\n'
-            logging.info('%r downloaded and parsed', common.PAC_ADBLOCK)
+                content += '\r\nfunction FindProxyForURLByAdblock(url, host) {return "DIRECT";}\r\n'
         except Exception as e:
             need_update = False
             logging.exception('update_pacfile failed: %r', e)
@@ -634,7 +653,11 @@ class PacUtil(object):
                     jsLine = 'if (host == "%s") return "%s";' % (line, return_proxy)
             elif use_domain:
                 if line.split('/')[0].count('.') <= 1:
-                    jsLine = 'if (shExpMatch(url, "http://*.%s*")) return "%s";' % (line, return_proxy)
+                    if use_postfix:
+                        jsCondition = ' || '.join('shExpMatch(url, "http://*.%s*%s")' % (line, x) for x in use_postfix)
+                        jsLine = 'if (%s) return "%s";' % (jsCondition, return_proxy)
+                    else:
+                        jsLine = 'if (shExpMatch(url, "http://*.%s*")) return "%s";' % (line, return_proxy)
                 else:
                     if '*' in line:
                         if use_postfix:
@@ -851,10 +874,13 @@ class HTTPUtil(object):
         # openssl s_server -accept 443 -key CA.crt -cert CA.crt
         # set_ciphers as Modern Browsers
         self.max_window = max_window
+        self.max_window_map = {}
         self.max_retry = max_retry
         self.max_timeout = max_timeout
         self.tcp_connection_time = collections.defaultdict(float)
+        self.tcp_connection_cache = collections.defaultdict(Queue.PriorityQueue)
         self.ssl_connection_time = collections.defaultdict(float)
+        self.ssl_connection_cache = collections.defaultdict(Queue.PriorityQueue)
         self.max_timeout = max_timeout
         self.dns = {}
         self.crlf = 0
@@ -866,15 +892,6 @@ class HTTPUtil(object):
             self.ssl_context.set_session_id(binascii.b2a_hex(os.urandom(10)))
             if hasattr(OpenSSL.SSL, 'SESS_CACHE_BOTH'):
                 self.ssl_context.set_session_cache_mode(OpenSSL.SSL.SESS_CACHE_BOTH)
-            else:
-                try:
-                    import ctypes
-                    SSL_CTRL_SET_SESS_CACHE_MODE = 44
-                    SESS_CACHE_BOTH = 0x3
-                    ctx = ctypes.c_void_p.from_address(id(self.ssl_context)+ctypes.sizeof(ctypes.c_int)+ctypes.sizeof(ctypes.c_voidp))
-                    ctypes.cdll.ssleay32.SSL_CTX_ctrl(ctx, SSL_CTRL_SET_SESS_CACHE_MODE, SESS_CACHE_BOTH, None)
-                except Exception as e:
-                    logging.warning('SSL_CTX_set_session_cache_mode failed: %r', e)
         else:
             self.ssl_context = None
         if self.ssl_validate:
@@ -898,7 +915,8 @@ class HTTPUtil(object):
             self.dns[host] = iplist = list(set(iplist))
         return iplist
 
-    def create_connection(self, address, timeout=None, source_address=None):
+    def create_connection(self, address, timeout=None, source_address=None, **kwargs):
+        connection_cache_key = kwargs.get('cache_key') or address
         def _create_connection(address, timeout, queobj):
             sock = None
             try:
@@ -920,7 +938,7 @@ class HTTPUtil(object):
                 self.tcp_connection_time[address] = time.time() - start_time
                 # put ssl socket object to output queobj
                 queobj.put(sock)
-            except (socket.error, ssl.SSLError, OSError) as e:
+            except (socket.error, OSError) as e:
                 # any socket.error, put Excpetions to output queobj.
                 queobj.put(e)
                 # reset a large and random timeout to the address
@@ -928,10 +946,20 @@ class HTTPUtil(object):
                 # close tcp socket
                 if sock:
                     sock.close()
-
         def _close_connection(count, queobj):
-            for _ in range(count):
-                queobj.get()
+            for i in range(count):
+                sock = queobj.get()
+                if sock and not isinstance(sock, Exception):
+                    if i == 0:
+                        self.tcp_connection_cache[connection_cache_key].put((time.time(), sock))
+                    else:
+                        sock.close()
+        try:
+            ctime, sock = self.tcp_connection_cache[connection_cache_key].get_nowait()
+            if time.time() - ctime < 30:
+                return sock
+        except Queue.Empty:
+            pass
         host, port = address
         result = None
         addresses = [(x, port) for x in self.dns_resolve(host)]
@@ -939,8 +967,9 @@ class HTTPUtil(object):
             get_connection_time = lambda addr: self.ssl_connection_time.__getitem__(addr) or self.tcp_connection_time.__getitem__(addr)
         else:
             get_connection_time = self.tcp_connection_time.__getitem__
+        max_window = self.max_window_map.get(host, self.max_window)
         for i in range(self.max_retry):
-            window = min((self.max_window+1)//2 + i, len(addresses))
+            window = min((max_window+1)//2 + i, len(addresses))
             addresses.sort(key=get_connection_time)
             addrs = addresses[:window] + random.sample(addresses, window)
             queobj = Queue.Queue()
@@ -956,7 +985,8 @@ class HTTPUtil(object):
                         # only output first error
                         logging.warning('create_connection to %s return %r, try again.', addrs, result)
 
-    def create_ssl_connection(self, address, timeout=None, source_address=None):
+    def create_ssl_connection(self, address, timeout=None, source_address=None, **kwargs):
+        connection_cache_key = kwargs.get('cache_key') or address
         def _create_ssl_connection(ipaddr, timeout, queobj):
             sock = None
             ssl_sock = None
@@ -972,7 +1002,10 @@ class HTTPUtil(object):
                 # set a short timeout to trigger timeout retry more quickly.
                 sock.settimeout(timeout or self.max_timeout)
                 # pick up the certificate
-                ssl_sock = ssl.wrap_socket(sock, do_handshake_on_connect=False)
+                if not self.ssl_validate:
+                    ssl_sock = ssl.wrap_socket(sock, do_handshake_on_connect=False)
+                else:
+                    ssl_sock = ssl.wrap_socket(sock, cert_reqs=ssl.CERT_REQUIRED, ca_certs='cacert.pem', do_handshake_on_connect=False)
                 ssl_sock.settimeout(timeout or self.max_timeout)
                 # start connection time record
                 start_time = time.time()
@@ -992,7 +1025,8 @@ class HTTPUtil(object):
                 if self.ssl_validate and address[0].endswith('.appspot.com'):
                     cert = ssl_sock.getpeercert()
                     commonname = next((v for ((k, v),) in cert['subject'] if k == 'commonName'))
-                    if '.google' not in commonname and not commonname.endswith('.appspot.com'):
+                    fields = commonname.split('.')
+                    if not (('google' in fields and all(len(x) <=3 for x in fields[fields.index('google')+1:])) or commonname.endswith('appspot.com')):
                         raise ssl.SSLError("Host name '%s' doesn't match certificate host '%s'" % (address[0], commonname))
                 # put ssl socket object to output queobj
                 queobj.put(ssl_sock)
@@ -1061,14 +1095,27 @@ class HTTPUtil(object):
                 if sock:
                     sock.close()
         def _close_ssl_connection(count, queobj):
-            for _ in range(count):
-                queobj.get()
+            for i in range(count):
+                sock = queobj.get()
+                if sock and not isinstance(sock, Exception):
+                    if i == 0:
+                        self.ssl_connection_cache[connection_cache_key].put((time.time(), sock))
+                    else:
+                        sock.close()
+        try:
+            ctime, sock = self.ssl_connection_cache[connection_cache_key].get_nowait()
+            if time.time() - ctime < 30:
+                return sock
+        except Queue.Empty:
+            pass
         host, port = address
         result = None
-        create_connection = _create_ssl_connection if not self.ssl_obfuscate and not self.ssl_validate else _create_openssl_connection
+        # create_connection = _create_ssl_connection if not self.ssl_obfuscate and not self.ssl_validate else _create_openssl_connection
+        create_connection = _create_ssl_connection
         addresses = [(x, port) for x in self.dns_resolve(host)]
+        max_window = self.max_window_map.get(host, self.max_window)
         for i in range(self.max_retry):
-            window = min((self.max_window+1)//2 + i, len(addresses))
+            window = min((max_window+1)//2 + i, len(addresses))
             addresses.sort(key=self.ssl_connection_time.__getitem__)
             addrs = addresses[:window] + random.sample(addresses, window)
             queobj = Queue.Queue()
@@ -1083,37 +1130,6 @@ class HTTPUtil(object):
                     if i == 0:
                         # only output first error
                         logging.warning('create_ssl_connection to %s return %r, try again.', addrs, result)
-
-    def create_connection_withdata(self, address, timeout=None, source_address=None, data=None):
-        assert isinstance(data, str) and data
-        host, port = address
-        # result = None
-        addresses = [(x, port) for x in self.dns_resolve(host)]
-        if port == 443:
-            get_connection_time = lambda addr: self.ssl_connection_time.get(addr) or self.tcp_connection_time.get(addr)
-        else:
-            get_connection_time = self.tcp_connection_time.get
-        for i in range(self.max_retry):
-            window = min((self.max_window+1)//2 + i, len(addresses))
-            addresses.sort(key=get_connection_time)
-            addrs = addresses[:window] + random.sample(addresses, window)
-            socks = []
-            for addr in addrs:
-                sock = socket.socket(socket.AF_INET if ':' not in address[0] else socket.AF_INET6)
-                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 32*1024)
-                sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, True)
-                sock.setblocking(0)
-                sock.connect_ex(addr)
-                socks.append(sock)
-            # something happens :D
-            (_, outs, _) = select.select([], socks, [], 5)
-            if outs:
-                sock = outs[0]
-                sock.setblocking(1)
-                socks.remove(sock)
-                any(s.close() for s in socks)
-                return sock
 
     def create_connection_withproxy(self, address, timeout=None, source_address=None, proxy=None):
         assert isinstance(proxy, str)
@@ -1214,7 +1230,7 @@ class HTTPUtil(object):
         if crlf:
             need_crlf = 1
         if need_crlf:
-            request_data = 'GET / HTTP/1.1\r\n\r\n\r\n\r\n\r\r'
+            request_data = 'GET /%s HTTP/1.1\r\n\r\n\r\n\r\n\r\r' % ''.join(random.sample('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', random.randint(1, 52)))
         else:
             request_data = ''
         request_data += '%s %s %s\r\n' % (method, path, protocol_version)
@@ -1256,7 +1272,7 @@ class HTTPUtil(object):
             response = None
         return response
 
-    def request(self, method, url, payload=None, headers={}, realhost='', fullurl=False, bufsize=8192, crlf=None, return_sock=None):
+    def request(self, method, url, payload=None, headers={}, realhost='', fullurl=False, bufsize=8192, crlf=None, return_sock=None, connection_cache_key=None):
         scheme, netloc, path, _, query, _ = urlparse.urlparse(url)
         if netloc.rfind(':') <= netloc.rfind(']'):
             # no port number
@@ -1276,14 +1292,14 @@ class HTTPUtil(object):
             try:
                 if not self.proxy:
                     if scheme == 'https':
-                        ssl_sock = self.create_ssl_connection((realhost or host, port), self.max_timeout)
+                        ssl_sock = self.create_ssl_connection((realhost or host, port), self.max_timeout, cache_key=connection_cache_key)
                         if ssl_sock:
                             sock = ssl_sock.sock
                             del ssl_sock.sock
                         else:
                             raise socket.error('timed out', 'create_ssl_connection(%r,%r)' % (realhost or host, port))
                     else:
-                        sock = self.create_connection((realhost or host, port), self.max_timeout)
+                        sock = self.create_connection((realhost or host, port), self.max_timeout, cache_key=connection_cache_key)
                 else:
                     sock = self.create_connection_withproxy((realhost or host, port), port, self.max_timeout, proxy=self.proxy)
                     path = url
@@ -1327,17 +1343,25 @@ class Common(object):
         self.GAE_PASSWORD = self.CONFIG.get('gae', 'password').strip()
         self.GAE_PATH = self.CONFIG.get('gae', 'path')
         self.GAE_PROFILE = self.CONFIG.get('gae', 'profile')
+        self.GAE_MODE = self.CONFIG.get('gae', 'mode')
+        self.GAE_HOSTS = self.CONFIG.get('gae', 'hosts')
+        self.GAE_WINDOW = self.CONFIG.getint('gae', 'window') if self.CONFIG.has_option('gae', 'window') else self.CONFIG.getint(self.GAE_PROFILE, 'window')
         self.GAE_CRLF = self.CONFIG.getint('gae', 'crlf')
         self.GAE_VALIDATE = self.CONFIG.getint('gae', 'validate')
         self.GAE_OBFUSCATE = self.CONFIG.getint('gae', 'obfuscate') if self.CONFIG.has_option('gae', 'obfuscate') else 0
         self.GAE_OPTIONS = self.CONFIG.get('gae', 'options') if self.CONFIG.has_option('gae', 'options') else ''
+        m = re.match(r'\[(\w+)\](\w+)', self.GAE_HOSTS)
+        if m:
+            self.GAE_HOSTS = self.CONFIG.get(m.group(1), m.group(2)).split('|')
+        else:
+            self.GAE_HOSTS = (self.GAE_HOSTS or self.CONFIG.get(self.GAE_PROFILE, 'hosts')).split('|')
 
         self.PAC_ENABLE = self.CONFIG.getint('pac', 'enable')
         self.PAC_IP = self.CONFIG.get('pac', 'ip')
         self.PAC_PORT = self.CONFIG.getint('pac', 'port')
         self.PAC_FILE = self.CONFIG.get('pac', 'file').lstrip('/')
         self.PAC_GFWLIST = self.CONFIG.get('pac', 'gfwlist')
-        self.PAC_ADBLOCK = self.CONFIG.get('pac', 'adblock')
+        self.PAC_ADBLOCK = self.CONFIG.get('pac', 'adblock') if self.CONFIG.has_option('pac', 'adblock') else ''
         self.PAC_EXPIRED = self.CONFIG.getint('pac', 'expired')
 
         self.PAAS_ENABLE = self.CONFIG.getint('paas', 'enable')
@@ -1365,12 +1389,11 @@ class Common(object):
                 self.PROXY_HOST = proxyhost
                 self.PROXY_PORT = int(proxyport)
         if self.PROXY_ENABLE:
-            self.GOOGLE_MODE = 'https'
+            self.GAE_MODE = 'https'
             self.proxy = 'https://%s:%s@%s:%d' % (self.PROXY_USERNAME or '', self.PROXY_PASSWROD or '', self.PROXY_HOST, self.PROXY_PORT)
         else:
             self.proxy = ''
 
-        self.GOOGLE_MODE = self.CONFIG.get(self.GAE_PROFILE, 'mode')
         self.GOOGLE_WINDOW = self.CONFIG.getint(self.GAE_PROFILE, 'window') if self.CONFIG.has_option(self.GAE_PROFILE, 'window') else 4
         self.GOOGLE_HOSTS = [x for x in self.CONFIG.get(self.GAE_PROFILE, 'hosts').split('|') if x]
         self.GOOGLE_SITES = tuple(x for x in self.CONFIG.get(self.GAE_PROFILE, 'sites').split('|') if x)
@@ -1422,7 +1445,7 @@ class Common(object):
         self.HOSTS_CONNECT_MATCH = DictType((re.compile(k).search, v) for k, v in self.HOSTS.items() if re.search(r'\d+$', k))
 
         random.shuffle(self.GAE_APPIDS)
-        self.GAE_FETCHSERVER = '%s://%s.appspot.com%s?' % (self.GOOGLE_MODE, self.GAE_APPIDS[0], self.GAE_PATH)
+        self.GAE_FETCHSERVER = '%s://%s.appspot.com%s?' % (self.GAE_MODE, self.GAE_APPIDS[0], self.GAE_PATH)
 
     def info(self):
         info = ''
@@ -1432,7 +1455,7 @@ class Common(object):
         info += 'Listen Address     : %s:%d\n' % (self.LISTEN_IP, self.LISTEN_PORT)
         info += 'Local Proxy        : %s:%s\n' % (self.PROXY_HOST, self.PROXY_PORT) if self.PROXY_ENABLE else ''
         info += 'Debug INFO         : %s\n' % self.LISTEN_DEBUGINFO if self.LISTEN_DEBUGINFO else ''
-        info += 'GAE Mode           : %s\n' % self.GOOGLE_MODE
+        info += 'GAE Mode           : %s\n' % self.GAE_MODE
         info += 'GAE Profile        : %s\n' % self.GAE_PROFILE
         info += 'GAE APPID          : %s\n' % '|'.join(self.GAE_APPIDS)
         info += 'GAE Validate       : %s\n' % self.GAE_VALIDATE if self.GAE_VALIDATE else ''
@@ -1494,76 +1517,50 @@ def response_replace_header(response, name, value):
         response.header.replace_header(name, value)
 
 
+try:
+    from Crypto.Cipher.ARC4 import new as _Crypto_Cipher_ARC4_new
+except ImportError:
+    logging.warn('Load Crypto.Cipher.ARC4 Failed, Use Pure Python Instead.')
+    class _Crypto_Cipher_ARC4_new(object):
+        def __init__(self, key):
+            x = 0
+            box = range(256)
+            for i, y in enumerate(box):
+                x = (x + y + ord(key[i % len(key)])) & 0xff
+                box[i], box[x] = box[x], y
+            self.__box = box
+            self.__x = 0
+            self.__y = 0
+        def encrypt(self, data):
+            out = []
+            out_append = out.append
+            x = self.__x
+            y = self.__y
+            box = self.__box
+            for char in data:
+                x = (x + 1) & 0xff
+                y = (y + box[x]) & 0xff
+                box[x], box[y] = box[y], box[x]
+                out_append(chr(ord(char) ^ box[(box[x] + box[y]) & 0xff]))
+            self.__x = x
+            self.__y = y
+            return ''.join(out)
+
+
 def rc4crypt(data, key):
-    """RC4 algorithm"""
-    if not key or not data:
-        return data
-    x = 0
-    box = range(256)
-    for i, y in enumerate(box):
-        x = (x + y + ord(key[i % len(key)])) & 0xff
-        box[i], box[x] = box[x], y
-    x = y = 0
-    out = []
-    out_append = out.append
-    for char in data:
-        x = (x + 1) & 0xff
-        y = (y + box[x]) & 0xff
-        box[x], box[y] = box[y], box[x]
-        out_append(chr(ord(char) ^ box[(box[x] + box[y]) & 0xff]))
-    return ''.join(out)
+    return _Crypto_Cipher_ARC4_new(key).encrypt(data) if key else data
 
 
 class RC4FileObject(object):
     """fileobj for rc4"""
     def __init__(self, stream, key):
         self.__stream = stream
-        x = 0
-        box = range(256)
-        for i, y in enumerate(box):
-            x = (x + y + ord(key[i % len(key)])) & 0xff
-            box[i], box[x] = box[x], y
-        self.__box = box
-        self.__x = 0
-        self.__y = 0
-
+        self.__cipher = _Crypto_Cipher_ARC4_new(key) if key else lambda x:x
     def __getattr__(self, attr):
-        if attr not in ('__stream', '__box', '__x', '__y'):
+        if attr not in ('__stream', '__cipher'):
             return getattr(self.__stream, attr)
-
     def read(self, size=-1):
-        out = []
-        out_append = out.append
-        x = self.__x
-        y = self.__y
-        box = self.__box
-        data = self.__stream.read(size)
-        for char in data:
-            x = (x + 1) & 0xff
-            y = (y + box[x]) & 0xff
-            box[x], box[y] = box[y], box[x]
-            out_append(chr(ord(char) ^ box[(box[x] + box[y]) & 0xff]))
-        self.__x = x
-        self.__y = y
-        return ''.join(out)
-
-
-try:
-    from Crypto.Cipher._ARC4 import new as _Crypto_Cipher_ARC4_new
-    def rc4crypt(data, key):
-        return _Crypto_Cipher_ARC4_new(key).encrypt(data)
-    class RC4FileObject(object):
-        """fileobj for rc4"""
-        def __init__(self, stream, key):
-            self.__stream = stream
-            self.__cipher = _Crypto_Cipher_ARC4_new(key)
-        def __getattr__(self, attr):
-            if attr not in ('__stream', '__cipher'):
-                return getattr(self.__stream, attr)
-        def read(self, size=-1):
-            return self.__cipher.encrypt(self.__stream.read(size))
-except ImportError:
-    pass
+        return self.__cipher.encrypt(self.__stream.read(size))
 
 
 def gae_urlfetch(method, url, headers, payload, fetchserver, **kwargs):
@@ -1597,16 +1594,20 @@ def gae_urlfetch(method, url, headers, payload, fetchserver, **kwargs):
         else:
             request_method = 'GET'
     else:
-        if 'rc4' in common.GAE_OPTIONS:
-            request_headers['X-GOA-Options'] = 'rc4'
-            metadata = rc4crypt(metadata, kwargs.get('password'))
-            payload = rc4crypt(payload, kwargs.get('password'))
         metadata = zlib.compress(metadata)[2:-4]
         payload = '%s%s%s' % (struct.pack('!h', len(metadata)), metadata, payload)
+        if 'rc4' in common.GAE_OPTIONS:
+            request_headers['X-GOA-Options'] = 'rc4'
+            payload = rc4crypt(payload, kwargs.get('password'))
         request_headers['Content-Length'] = str(len(payload))
     # post data
-    need_crlf = 0 if common.GOOGLE_MODE == 'https' else common.GAE_CRLF
-    response = http_util.request(request_method, fetchserver, payload, request_headers, crlf=need_crlf)
+    if common.GAE_MODE == 'https':
+        need_crlf = 0
+        connection_cache_key = '*.appspot.com:443'
+    else:
+        need_crlf = 1
+        connection_cache_key = '*.appspot.com:80'
+    response = http_util.request(request_method, fetchserver, payload, request_headers, crlf=need_crlf, connection_cache_key=connection_cache_key)
     response.app_status = response.status
     response.app_options = response.getheader('X-GOA-Options', '')
     if response.status != 200:
@@ -1775,6 +1776,9 @@ class RangeFetch(object):
                     logging.info('>>>>>>>>>>>>>>> [thread %s] %s %s', threading.currentThread().ident, content_length, content_range)
                     while 1:
                         try:
+                            if self._stopped:
+                                response.close()
+                                return
                             data = response.read(self.bufsize)
                             if not data:
                                 break
@@ -1833,43 +1837,41 @@ class GAEProxyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     normcookie = functools.partial(re.compile(', ([^ =]+(?:=|$))').sub, '\\r\\nSet-Cookie: \\1')
     normattachment = functools.partial(re.compile(r'filename=(.+?)').sub, 'filename="\\1"')
 
-    def _update_google_iplist(self):
-        if any(not re.match(r'\d+\.\d+\.\d+\.\d+', x) for x in common.GOOGLE_HOSTS):
-            google_ipmap = {}
-            need_resolve_remote = []
-            for domain in common.GOOGLE_HOSTS:
-                if not re.match(r'\d+\.\d+\.\d+\.\d+', domain):
-                    try:
-                        iplist = socket.gethostbyname_ex(domain)[-1]
-                        if len(iplist) >= 2:
-                            google_ipmap[domain] = iplist
-                    except (socket.error, OSError):
-                        need_resolve_remote.append(domain)
-                        continue
+    @staticmethod
+    def resolve_google_iplist(google_hosts):
+        resolved_iplist = []
+        need_resolve_remote = []
+        for host in google_hosts:
+            if re.match(r'\d+\.\d+\.\d+\.\d+', host):
+                resolved_iplist += [host]
+                continue
+            try:
+                iplist = socket.gethostbyname_ex(host)[-1]
+                if len(iplist) >= 2:
+                    resolved_iplist += iplist
                 else:
-                    google_ipmap[domain] = [domain]
-            google_iplist = list(set(sum(list(google_ipmap.values()), [])))
-            if len(google_iplist) < 20 or len(set(x.split('.', 1)[0] for x in google_iplist)) == 1:
-                logging.warning('local google_iplist=%s is too short, try remote_resolve', google_iplist)
-                need_resolve_remote += list(common.GOOGLE_HOSTS)
-            for dnsserver in ('8.8.4.4', '168.95.1.1', '114.114.114.114', '114.114.115.115'):
-                for domain in need_resolve_remote:
-                    logging.info('resolve remote domain=%r from dnsserver=%r', domain, dnsserver)
-                    try:
-                        iplist = DNSUtil.remote_resolve(dnsserver, domain, timeout=3)
-                        if iplist:
-                            google_ipmap.setdefault(domain, []).extend(iplist)
-                            logging.info('resolve remote domain=%r to iplist=%s', domain, google_ipmap[domain])
-                    except (socket.error, OSError) as e:
-                        logging.exception('resolve remote domain=%r dnsserver=%r failed: %s', domain, dnsserver, e)
-            common.GOOGLE_HOSTS = list(set(sum(list(google_ipmap.values()), [])))
-            if len(common.GOOGLE_HOSTS) == 0:
-                logging.error('resolve %s domain return empty! try remote dns resovle!', common.GAE_PROFILE)
-                common.GOOGLE_HOSTS = common.CONFIG.get(common.GAE_PROFILE, 'hosts').split('|')
-                #sys.exit(-1)
-        for appid in common.GAE_APPIDS:
-            http_util.dns['%s.appspot.com' % appid] = list(set(common.GOOGLE_HOSTS))
-        logging.info('resolve common.GOOGLE_HOSTS domain to iplist=%r', common.GOOGLE_HOSTS)
+                    need_resolve_remote += [host]
+            except (socket.error, OSError):
+                need_resolve_remote += [host]
+        if len(resolved_iplist) < 20 or len(set(x.split('.', 1)[0] for x in resolved_iplist)) == 1:
+            logging.warning('local google_hosts=%s is too short, try remote_resolve', google_hosts)
+            need_resolve_remote += [x for x in google_hosts if not re.match(r'\d+\.\d+\.\d+\.\d+', x)]
+        for dnsserver in ('114.114.114.114', '114.114.115.115'):
+            for host in need_resolve_remote:
+                logging.debug('resolve remote host=%r from dnsserver=%r', host, dnsserver)
+                try:
+                    iplist = DNSUtil.remote_resolve(dnsserver, host, timeout=3)
+                    if iplist:
+                        resolved_iplist += iplist
+                        logging.debug('resolve remote host=%r to iplist=%s', host, iplist)
+                except (socket.error, OSError) as e:
+                    logging.exception('resolve remote host=%r dnsserver=%r failed: %s', host, dnsserver, e)
+        resolved_iplist = list(set(resolved_iplist))
+        if len(resolved_iplist) == 0:
+            logging.error('resolve %s host return empty! please retry!', google_hosts)
+            sys.exit(-1)
+        logging.info('resolve google_hosts=%s host to iplist=%r', google_hosts, resolved_iplist)
+        return resolved_iplist
 
     def first_run(self):
         """GAEProxyHandler setup, init domain/iplist map"""
@@ -1917,12 +1919,18 @@ class GAEProxyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 logging.info('speedtest google_cn iplist average_timing=%0.2f ms, need_switch=%r', average_timing, need_switch)
                 if need_switch:
                     common.GAE_PROFILE = 'google_hk'
-                    common.GOOGLE_MODE = 'https'
-                    common.GAE_FETCHSERVER = '%s://%s.appspot.com%s?' % (common.GOOGLE_MODE, common.GAE_APPIDS[0], common.GAE_PATH)
+                    common.GAE_MODE = 'https'
+                    common.GAE_FETCHSERVER = '%s://%s.appspot.com%s?' % (common.GAE_MODE, common.GAE_APPIDS[0], common.GAE_PATH)
                     http_util.max_window = common.GOOGLE_WINDOW = common.CONFIG.getint('google_hk', 'window')
                     common.GOOGLE_HOSTS = list(set(x for x in common.CONFIG.get(common.GAE_PROFILE, 'hosts').split('|') if x))
                     common.GOOGLE_WITHGAE = tuple(common.CONFIG.get('google_hk', 'withgae').split('|'))
-            self._update_google_iplist()
+            common.GOOGLE_HOSTS = self.__class__.resolve_google_iplist(common.GOOGLE_HOSTS)
+            common.GAE_HOSTS = self.__class__.resolve_google_iplist(common.GAE_HOSTS)
+            for appid in common.GAE_APPIDS:
+                http_util.dns['%s.appspot.com' % appid] = common.GAE_HOSTS
+                http_util.max_window_map['%s.appspot.com' % appid] = common.GAE_WINDOW
+            logging.info('GOOGLE_HOSTS=%s', common.GOOGLE_HOSTS)
+            logging.info('GAE_HOSTS=%s', common.GAE_HOSTS)
 
     def setup(self):
         if isinstance(self.__class__.first_run, collections.Callable):
@@ -1999,7 +2007,7 @@ class GAEProxyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             if common.HOSTS_MATCH and any(x(self.path) for x in common.HOSTS_MATCH):
                 realhosts = next(common.HOSTS_MATCH[x] for x in common.HOSTS_MATCH if x(self.path)) or re.sub(r':\d+$', '', self.parsed_url.netloc)
                 realhost = random.choice(realhosts.split('|'))
-                logging.debug('hosts pattern mathed, url=%r realhost=%r', self.path, realhost)
+                logging.debug('hosts pattern matched, url=%r realhost=%r', self.path, realhost)
                 response = http_util.request(self.command, self.path, payload, self.headers, realhost=realhost, crlf=common.GAE_CRLF)
             else:
                 response = http_util.request(self.command, self.path, payload, self.headers, crlf=common.GAE_CRLF)
@@ -2072,14 +2080,14 @@ class GAEProxyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                     return
                 # gateway error, switch to https mode
                 if response.app_status in (400, 504) or (response.app_status == 502 and common.GAE_PROFILE == 'google_cn'):
-                    common.GOOGLE_MODE = 'https'
-                    common.GAE_FETCHSERVER = '%s://%s.appspot.com%s?' % (common.GOOGLE_MODE, common.GAE_APPIDS[0], common.GAE_PATH)
+                    common.GAE_MODE = 'https'
+                    common.GAE_FETCHSERVER = '%s://%s.appspot.com%s?' % (common.GAE_MODE, common.GAE_APPIDS[0], common.GAE_PATH)
                     continue
                 # appid not exists, try remove it from appid
                 if response.app_status == 404:
                     if len(common.GAE_APPIDS) > 1:
                         appid = common.GAE_APPIDS.pop(0)
-                        common.GAE_FETCHSERVER = '%s://%s.appspot.com%s?' % (common.GOOGLE_MODE, common.GAE_APPIDS[0], common.GAE_PATH)
+                        common.GAE_FETCHSERVER = '%s://%s.appspot.com%s?' % (common.GAE_MODE, common.GAE_APPIDS[0], common.GAE_PATH)
                         http_util.dns[urlparse.urlparse(common.GAE_FETCHSERVER).netloc] = common.GOOGLE_HOSTS
                         logging.warning('APPID %r not exists, remove it.', appid)
                         continue
@@ -2093,7 +2101,7 @@ class GAEProxyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 if response.app_status == 503:
                     if len(common.GAE_APPIDS) > 1:
                         common.GAE_APPIDS.pop(0)
-                        common.GAE_FETCHSERVER = '%s://%s.appspot.com%s?' % (common.GOOGLE_MODE, common.GAE_APPIDS[0], common.GAE_PATH)
+                        common.GAE_FETCHSERVER = '%s://%s.appspot.com%s?' % (common.GAE_MODE, common.GAE_APPIDS[0], common.GAE_PATH)
                         http_util.dns[urlparse.urlparse(common.GAE_FETCHSERVER).netloc] = common.GOOGLE_HOSTS
                         logging.info('Current APPID Over Quota,Auto Switch to [%s], Retrying…' % (common.GAE_APPIDS[0]))
                         self.do_METHOD_GAE()
@@ -2158,8 +2166,8 @@ class GAEProxyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                     logging.debug('GAEProxyHandler.do_METHOD_GAE return %r', e)
                 elif e.args[0] in (errno.ECONNRESET, errno.ETIMEDOUT, errno.ENETUNREACH, 11004):
                     # connection reset or timeout, switch to https
-                    common.GOOGLE_MODE = 'https'
-                    common.GAE_FETCHSERVER = '%s://%s.appspot.com%s?' % (common.GOOGLE_MODE, common.GAE_APPIDS[0], common.GAE_PATH)
+                    common.GAE_MODE = 'https'
+                    common.GAE_FETCHSERVER = '%s://%s.appspot.com%s?' % (common.GAE_MODE, common.GAE_APPIDS[0], common.GAE_PATH)
                 elif e.args[0] == errno.ETIMEDOUT or isinstance(e.args[0], str) and 'timed out' in e.args[0]:
                     if content_length and accept_ranges == 'bytes':
                         # we can retry range fetch here
@@ -2199,7 +2207,8 @@ class GAEProxyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             for i in range(5):
                 try:
                     timeout = 4
-                    remote = http_util.create_connection((host, port), timeout)
+                    connection_cache_key = '*.google.com:%d' % port if host.endswith(common.GOOGLE_SITES) else ''
+                    remote = http_util.create_connection((host, port), timeout, cache_key=connection_cache_key)
                     if remote is not None and data:
                         remote.sendall(data)
                         break
@@ -2592,7 +2601,7 @@ def pre_start():
     if common.GAE_APPIDS[0] == 'goagent':
         logging.critical('please edit %s to add your appid to [gae] !', common.CONFIG_FILENAME)
         sys.exit(-1)
-    if common.GOOGLE_MODE == 'http' and common.GAE_PROFILE != 'google_ipv6' and common.GAE_PASSWORD == '':
+    if common.GAE_MODE == 'http' and common.GAE_PROFILE != 'google_ipv6' and common.GAE_PASSWORD == '':
         logging.critical('to enable http mode, you should set %r [gae]password = <your_pass> and [gae]options = rc4', common.CONFIG_FILENAME)
         sys.exit(-1)
     if common.PAC_ENABLE:
